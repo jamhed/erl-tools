@@ -13,5 +13,8 @@ master:
 test:
 	cd t && ct_run -pa ../apps/*/ebin -dir ../apps/web/t/
 
+script:
+	bin/rebar escriptize
+
 console: devel
 	_rel/fmt/bin/fmt console

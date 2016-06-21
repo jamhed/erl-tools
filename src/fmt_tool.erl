@@ -4,13 +4,16 @@
 % erlang source code processor
 
 process(File) ->
-	reassemble(tokenize(read(File))).
+	Data = read(File),
+	Tokens = tokenize(Data),
+	reassemble(Tokens).
 
 read(IO, Acc) ->
-	Str = fun([BinStr]) -> erlang:binary_to_list(BinStr) end,
-	case file:read(IO, 4096) of
+	case file:read(IO, 96) of
 		{ok, Data} -> read(IO, [ Data | Acc ]);
-		eof -> Str(lists:flatten(lists:reverse(Acc)));
+		eof ->
+			Bin = erlang:list_to_binary(lists:reverse(Acc)),
+			erlang:binary_to_list(Bin);
 		{error, Error} -> exit(Error)
 	end.
 

@@ -12,6 +12,7 @@ read(IO, Acc) ->
 	case file:read(IO, 96) of
 		{ok, Data} -> read(IO, [ Data | Acc ]);
 		eof ->
+			file:close(IO),
 			Bin = erlang:list_to_binary(lists:reverse(Acc)),
 			erlang:binary_to_list(Bin);
 		{error, Error} -> exit(Error)
@@ -32,7 +33,15 @@ reassemble(Tokens) when is_list(Tokens) ->
 
 reassemble({_Item, [{text, Text}, {location, _Line}]}) ->
 	Text;
-reassemble({atom, [{text, _Text}, {location, _Line}], Value}) ->
-	erlang:atom_to_list(Value);
+reassemble({atom, [{text, Text}, {location, _Line}], Value}) ->
+	check_atom(erlang:atom_to_list(Value), Text);
 reassemble({_Item, [{text, Text}, {location, _Line}], _Value}) ->
 	Text.
+
+% if atom starts with uppercase
+check_atom([], Text) -> Text;
+check_atom(Atom = [L | _], Text) ->
+	case string:to_upper(L) == L of
+		true -> Text;
+		false -> Atom
+	end.

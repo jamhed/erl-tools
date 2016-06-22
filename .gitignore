@@ -2,3 +2,4 @@ deps
 _rel
 ebin
 fmt
+.rebar

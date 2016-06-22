@@ -1,5 +1,5 @@
 -module(fmt_tool).
--export([read/1, tokenize/1, process/1]).
+-export([tokens/1, tokens/2, process/1, sentences/1, ast/1]).
 
 % erlang source code processor
 
@@ -7,6 +7,36 @@ process(File) ->
 	Data = read(File),
 	Tokens = tokenize(Data),
 	reassemble(Tokens).
+
+tokens(File) ->
+	Data = read(File),
+	tokenize(Data).
+
+tokens(File, Opts) ->
+	Data = read(File),
+	tokenize(Data, Opts).
+
+sentence(Tokens) -> sentence(Tokens, []).
+
+sentence([], Acc) -> {lists:reverse(Acc), []};
+sentence([Token = {dot, _} | Rest], Acc) -> {lists:reverse([Token | Acc]), Rest};
+sentence([Token | Tokens], Acc) -> sentence(Tokens, [ Token | Acc ]).
+
+sentences(Tokens) -> sentences(Tokens, []).
+
+sentences([], Acc) -> lists:reverse(Acc);
+sentences(Tokens, Acc) ->
+	{Sentence, Rest} = sentence(Tokens),
+	sentences(Rest, [Sentence | Acc]).
+
+ast(Sentences) ->
+	[ ast_1(S) || S <- Sentences ]. 
+ast_1(S) ->
+	try erl_parse:parse_form(S) of
+		{ok, Ast} -> {S, Ast}
+	catch _C:E ->
+		{S, E}
+	end.
 
 read(IO, Acc) ->
 	case file:read(IO, 96) of
@@ -24,8 +54,10 @@ read(File) ->
 		{error, Error} -> exit(Error)
 	end.
 
-tokenize(Data) ->
-	{ok, Tokens, _Line} = erl_scan:string(Data, 1, [text, return]),
+tokenize(Data) -> tokenize(Data, [text, return]).
+
+tokenize(Data, Opts) ->
+	{ok, Tokens, _Line} = erl_scan:string(Data, 1, Opts),
 	Tokens.
 
 reassemble(Tokens) when is_list(Tokens) ->
@@ -33,15 +65,7 @@ reassemble(Tokens) when is_list(Tokens) ->
 
 reassemble({_Item, [{text, Text}, {location, _Line}]}) ->
 	Text;
-reassemble({atom, [{text, Text}, {location, _Line}], Value}) ->
-	check_atom(erlang:atom_to_list(Value), Text);
+reassemble({atom, [{text, _Text}, {location, _Line}], Value}) ->
+	io_lib:format("~p", [Value]);
 reassemble({_Item, [{text, Text}, {location, _Line}], _Value}) ->
 	Text.
-
-% if atom starts with uppercase
-check_atom([], Text) -> Text;
-check_atom(Atom = [L | _], Text) ->
-	case string:to_upper(L) == L of
-		true -> Text;
-		false -> Atom
-	end.

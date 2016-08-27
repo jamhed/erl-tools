@@ -1,7 +1,6 @@
 -module(fmt_tool).
 -export([process/2]).
 -export([tokens/1, tokens/2, sentences/1, ast/1, analyze/1, make_st/1]).
--export([test/0]).
 
 process(tick, File) ->
 	analyze(make_st(File));
@@ -11,9 +10,8 @@ process(untick, File) ->
 	lists:flatten([ untick(Token) || Token <- Tokens ]).
 
 make_st(File) ->
-	Data = read(File),
-	Tokens = tokenize(Data),
-	Sentences = [ [] | sentences(Tokens) ] ++ [[]],
+	Tokens = tokens(File),
+	Sentences = [ [] | sentences(Tokens) ] ++ [ [] ],
 	AST = ast(File),
 	lists:zip(Sentences, AST).
 
@@ -39,7 +37,7 @@ sentences(Tokens, Acc) ->
 	sentences(Rest, [Sentence | Acc]).
 
 ast(File) ->
-	{ok, AST} = epp:parse_file(File, []),
+	{ok, AST} = fmt_epp:parse_file(File, []),
 	AST.
 
 read(IO, Acc) ->
@@ -66,7 +64,7 @@ tokenize(Data, Opts) ->
 	Tokens.
 
 reassemble(Tokens, TargetAtoms) ->
-	{[], TokenTexts} = lists:foldl(
+	{_, TokenTexts} = lists:foldl(
 		fun(Token, {TA, Acc}) ->
 			{NewTA, Text} = tick(TA, Token),
 			{NewTA, [Text | Acc]}
@@ -77,8 +75,10 @@ reassemble(Tokens, TargetAtoms) ->
 
 tick(Target, {_Item, [{text, Text}, {location, _Line}]}) ->
 	{Target, Text};
-tick([Value|Rest], {atom, [{text, _Text}, {location, _Line}], Value}) ->
+tick([{keep,Value}|Rest], {atom, [{text, _Text}, {location, _Line}], Value}) ->
 	{Rest, io_lib:format("'~p'", [Value])};
+tick([{skip,Value}|Rest], {atom, [{text, Text}, {location, _Line}], Value}) ->
+	{Rest, Text};
 tick(Target, {_Item, [{text, Text}, {location, _Line}], _Value}) ->
 	{Target, Text}.
 
@@ -91,21 +91,33 @@ untick({_Item, [{text, Text}, {location, _Line}], _Value}) ->
 analyze([]) -> [];
 analyze([{Tokens, Form} | Rest]) ->
 	TargetAtoms = rep([], Form),
-	% io:format("~p~n~p~n~n", [TokenAtoms, Form]),
+	%% io:format("~p~n~p~n~n", [TargetAtoms, Form]),
 	reassemble(Tokens, TargetAtoms) ++ analyze(Rest).
 
 rep(Path, {function, _L, Name, _Arity, Rep}) ->
-	rep([Name | Path], Rep);
+	[{skip,Name}] ++ rep([Name | Path], Rep);
+rep(Path, {attribute, _L, _Attr, {{Name, _}, Rep}}) ->
+	[{skip, Name}] ++ rep(Path, Rep);
+rep(Path, {type, _L, _Type, Rep}) ->
+	rep(Path, Rep);
 rep(Path, {clause, _L, Rep1, Rep2, Rep3}) ->
 	rep(Path, [Rep1, Rep2, Rep3]);
+rep(Path, {'case', _L, Rep1, Rep2}) ->
+	rep(Path, [Rep1, Rep2]);
+rep(Path, {'try', _L, Rep1, Rep2, Rep3, Rep4}) ->
+	rep(Path, [Rep1, Rep2, Rep3, Rep4]);
 rep(Path, {tuple, _L, Rep}) ->
 	rep(Path, Rep);
-rep(Path, {call, _, {remote,_,{atom,_,M},{atom,_,F}}, Rep}) -> 
-	rep([M,F | Path], Rep);
 rep(Path, {call, _, {atom, _, F}, Rep}) ->
-	rep([F | Path], Rep);
+	[{skip, F}] ++ rep(Path, Rep);
+rep(Path, {call, _, Rep1, Rep2}) -> 
+	rep(Path, [Rep1, Rep2]);
+rep(_Path, {remote, _, {atom,_,M}, {atom,_,F}}) ->
+	[{skip, M}, {skip,F}];
+rep(Path, {remote, _, Rep, {atom,_,F}}) ->
+	rep(Path, Rep) ++ [{skip,F}];
 rep(_Path, {atom, _L, Atom}) ->
-	[Atom];
+	[{keep, Atom}];
 rep(Path, {cons, _L, Rep1, Rep2}) ->
 	rep(Path, [Rep1, Rep2]);
 rep(Path, {match, _L, Rep1, Rep2}) ->
@@ -114,8 +126,3 @@ rep(Path, [Rep|Rest]) ->
 	lists:append(rep(Path, Rep), rep(Path, Rest));
 rep(_Path, _P) -> [].
 
-test() ->
-	{ erlang:error("text"), tokenize(wtf), atom1, [atom3, atom4, atom5] },
-	test = test(),
-	{ok, _} = tokenize(wtf),
-	atomX.

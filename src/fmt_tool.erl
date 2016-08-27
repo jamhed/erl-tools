@@ -9,7 +9,7 @@ process(File) ->
 make_st(File) ->
 	Data = read(File),
 	Tokens = tokenize(Data),
-	Sentences = [ [] | sentences(Tokens) ],
+	Sentences = [ [] | sentences(Tokens) ] ++ [[]],
 	AST = ast(File),
 	lists:zip(Sentences, AST).
 

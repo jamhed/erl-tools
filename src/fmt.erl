@@ -4,9 +4,9 @@
 
 main(Args) ->
 	case Args of
-		[File] ->
-			Str = fmt_tool:process(File),
+		[Action, File] ->
+			Str = fmt_tool:process(erlang:list_to_atom(Action), File),
 			io:format("~s", [Str]);
 		_ ->
-			io:format("Usage: ./fmt file.erl~n", [])
+			io:format("Usage: ./fmt tick|untick file.erl~n", [])
 	end.

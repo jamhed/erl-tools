@@ -1,10 +1,14 @@
 -module(fmt_tool).
--export([tokens/1, tokens/2, process/1, sentences/1, ast/1, test/0, analyze/1, make_st/1]).
+-export([process/2]).
+-export([tokens/1, tokens/2, sentences/1, ast/1, analyze/1, make_st/1]).
+-export([test/0]).
 
-% erlang source code processor
-
-process(File) ->
-	analyze(make_st(File)).
+process(tick, File) ->
+	analyze(make_st(File));
+process(untick, File) ->
+	Data = read(File),
+	Tokens = tokenize(Data),
+	lists:flatten([ untick(Token) || Token <- Tokens ]).
 
 make_st(File) ->
 	Data = read(File),
@@ -54,7 +58,8 @@ read(File) ->
 		{error, Error} -> exit(Error)
 	end.
 
-tokenize(Data) -> tokenize(Data, [text, return]).
+tokenize(Data) ->
+	tokenize(Data, [text, return]).
 
 tokenize(Data, Opts) ->
 	{ok, Tokens, _Line} = erl_scan:string(Data, 1, Opts),
@@ -63,24 +68,30 @@ tokenize(Data, Opts) ->
 reassemble(Tokens, TargetAtoms) ->
 	{[], TokenTexts} = lists:foldl(
 		fun(Token, {TA, Acc}) ->
-			{NewTA, Text} = reassemble_token(TA, Token),
+			{NewTA, Text} = tick(TA, Token),
 			{NewTA, [Text | Acc]}
 		end, 
 		{TargetAtoms, []}, Tokens
 	),
 	lists:flatten(lists:reverse(TokenTexts)).
 
-reassemble_token(Target, {_Item, [{text, Text}, {location, _Line}]}) ->
+tick(Target, {_Item, [{text, Text}, {location, _Line}]}) ->
 	{Target, Text};
-reassemble_token([Value|Rest], {atom, [{text, _Text}, {location, _Line}], Value}) ->
+tick([Value|Rest], {atom, [{text, _Text}, {location, _Line}], Value}) ->
 	{Rest, io_lib:format("'~p'", [Value])};
-reassemble_token(Target, {_Item, [{text, Text}, {location, _Line}], _Value}) ->
+tick(Target, {_Item, [{text, Text}, {location, _Line}], _Value}) ->
 	{Target, Text}.
+
+untick({_Item, [{text, Text}, {location, _Line}]}) -> Text;
+untick({atom, [{text, _Text}, {location, _Line}], Value}) ->
+	io_lib:format("~p", [Value]);
+untick({_Item, [{text, Text}, {location, _Line}], _Value}) ->
+	Text.
 
 analyze([]) -> [];
 analyze([{Tokens, Form} | Rest]) ->
 	TargetAtoms = rep([], Form),
-	% io:format("~p~n~p~n~p~n~n", [TokenAtoms, TargetAtoms, Form]),
+	% io:format("~p~n~p~n~n", [TokenAtoms, Form]),
 	reassemble(Tokens, TargetAtoms) ++ analyze(Rest).
 
 rep(Path, {function, _L, Name, _Arity, Rep}) ->

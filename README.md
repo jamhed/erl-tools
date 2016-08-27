@@ -9,4 +9,4 @@ Make CTags file.
 fmt
 ---
 
-Untick Erlang atoms ('atom' -> atom).
+Tick Erlang atoms (atom -> 'atom').

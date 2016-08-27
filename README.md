@@ -1,5 +1,5 @@
-Erlang Tools
-=============
+Erlang AST Tools
+================
 
 tags.erl
 --------

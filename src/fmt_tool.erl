@@ -60,46 +60,51 @@ tokenize(Data, Opts) ->
 	{ok, Tokens, _Line} = erl_scan:string(Data, 1, Opts),
 	Tokens.
 
-reassemble(Tokens, Actions) when is_list(Tokens) ->
-	lists:flatten([ reassemble_token(Actions, Token) || Token <- Tokens ]).
+reassemble(Tokens, TargetAtoms) ->
+	{[], TokenTexts} = lists:foldl(
+		fun(Token, {TA, Acc}) ->
+			{NewTA, Text} = reassemble_token(TA, Token),
+			{NewTA, [Text | Acc]}
+		end, 
+		{TargetAtoms, []}, Tokens
+	),
+	lists:flatten(lists:reverse(TokenTexts)).
 
-reassemble_token(_Actions, {_Item, [{text, Text}, {location, _Line}]}) ->
-	Text;
-reassemble_token(Actions, {atom, [{text, Text}, {location, _Line}], Value}) ->
-	case lists:keymember(Value, 1, Actions) of
-		true ->
-			io_lib:format("'~p'", [Value]);
-		false ->
-			Text
-	end;
-reassemble_token(_Actions, {_Item, [{text, Text}, {location, _Line}], _Value}) ->
-	Text.
+reassemble_token(Target, {_Item, [{text, Text}, {location, _Line}]}) ->
+	{Target, Text};
+reassemble_token([Value|Rest], {atom, [{text, _Text}, {location, _Line}], Value}) ->
+	{Rest, io_lib:format("'~p'", [Value])};
+reassemble_token(Target, {_Item, [{text, Text}, {location, _Line}], _Value}) ->
+	{Target, Text}.
 
 analyze([]) -> [];
 analyze([{Tokens, Form} | Rest]) ->
-	Actions = rep([], Form),
-	%% io:format("~p~n~p~n", [Actions, Form]),
-	reassemble(Tokens, Actions) ++ analyze(Rest).
+	TargetAtoms = rep([], Form),
+	% io:format("~p~n~p~n~p~n~n", [TokenAtoms, TargetAtoms, Form]),
+	reassemble(Tokens, TargetAtoms) ++ analyze(Rest).
 
-rep(Path, {function, _L, _Name, _Arity, Rep}) ->
-	rep([function | Path], Rep);
+rep(Path, {function, _L, Name, _Arity, Rep}) ->
+	rep([Name | Path], Rep);
 rep(Path, {clause, _L, Rep1, Rep2, Rep3}) ->
-	rep([clause | Path], [Rep1, Rep2, Rep3]);
+	rep(Path, [Rep1, Rep2, Rep3]);
 rep(Path, {tuple, _L, Rep}) ->
-	rep([tuple | Path], Rep);
-rep(Path, {call, _L, _Rep1, Rep2}) -> 
-	rep([call | Path], Rep2);
-rep(Path, {atom, _L, Atom}) ->
-	[{Atom, Path}];
+	rep(Path, Rep);
+rep(Path, {call, _, {remote,_,{atom,_,M},{atom,_,F}}, Rep}) -> 
+	rep([M,F | Path], Rep);
+rep(Path, {call, _, {atom, _, F}, Rep}) ->
+	rep([F | Path], Rep);
+rep(_Path, {atom, _L, Atom}) ->
+	[Atom];
 rep(Path, {cons, _L, Rep1, Rep2}) ->
-	rep([ cons | Path ], [Rep1, Rep2]);
+	rep(Path, [Rep1, Rep2]);
 rep(Path, {match, _L, Rep1, Rep2}) ->
-	rep([ match | Path], [Rep1, Rep2]);
+	rep(Path, [Rep1, Rep2]);
 rep(Path, [Rep|Rest]) ->
 	lists:append(rep(Path, Rep), rep(Path, Rest));
 rep(_Path, _P) -> [].
 
 test() ->
 	{ erlang:error("text"), tokenize(wtf), atom1, [atom3, atom4, atom5] },
+	test = test(),
 	{ok, _} = tokenize(wtf),
 	atomX.

@@ -95,71 +95,70 @@ untick({_Item, [{text, Text}, {location, _Line}], _Value}) ->
 
 analyze([]) -> [];
 analyze([{Tokens, Form} | Rest]) ->
-	TargetAtoms = rep([], Form),
-	%% io:format("~p~n~p~n~n", [TargetAtoms, Form]),
+	TargetAtoms = rep(Form),
+	io:format("~p~n~p~n~n", [TargetAtoms, Form]),
 	reassemble(Tokens, TargetAtoms) ++ analyze(Rest).
 
-rep(Path, {function, _L, Name, _Arity, Rep}) ->
-	[{skip,Name}] ++ rep([Name | Path], Rep);
-rep(Path, {attribute, _L, spec, {{Name, _}, Rep}}) ->
-	[{skip, Name}] ++ rep(Path, Rep);
-rep(Path, {attribute, _L, type, {Name, Rep1, Rep2}}) ->
-	[{skip, Name}] ++ rep(Path, [Rep1, Rep2]);
-rep(Path, {attribute, _L, record, {Name, Rep}}) ->
-	[{skip, Name}] ++ rep(Path, Rep);
-rep(Path, {'fun', _, {clauses, Rep}}) ->
-	rep(Path, Rep);
-rep(_Path, {type, _L, record, [{atom, _, Name}]}) ->
+rep({function, _L, Name, _Arity, Rep}) ->
+	[{skip, Name}] ++ rep(Rep);
+rep({attribute, _L, spec, {{Name, _}, Rep}}) ->
+	[{skip, Name}] ++ rep(Rep);
+rep({attribute, _L, type, {Name, Rep1, Rep2}}) ->
+	[{skip, Name}] ++ rep([Rep1, Rep2]);
+rep({attribute, _L, record, {Name, Rep}}) ->
+	[{skip, Name}] ++ rep(Rep);
+rep({'fun', _, {clauses, Rep}}) ->
+	rep(Rep);
+rep({type, _L, record, [{atom, _, Name}]}) ->
 	[{skip, Name}];
-rep(Path, {type, _L, _Type, Rep}) ->
-	rep(Path, Rep);
-rep(Path, {record, _, Name, Rep}) ->
-	[{skip, Name}] ++ rep(Path, Rep);
-rep(Path, {record, _, _Var, Name, Rep}) ->
-	[{skip, Name}] ++ rep(Path, Rep);
-rep(Path, {record_field, _, _Field, Rep}) ->
-	rep(Path, Rep);
-rep(Path, {typed_record_field, Field, _Rep}) ->
-	rep(Path, Field);
-rep(Path, {clause, _L, Rep1, Rep2, Rep3}) ->
-	rep(Path, [Rep1, Rep2, Rep3]);
-rep(Path, {'case', _L, Rep1, Rep2}) ->
-	rep(Path, [Rep1, Rep2]);
-rep(Path, {'try', _L, Rep1, Rep2, Rep3, Rep4}) ->
-	rep(Path, [Rep1, Rep2, Rep3, Rep4]);
-rep(Path, {'catch', _, Rep}) ->
-	rep(Path, Rep);
-rep(Path, {op, _L, _Op, Rep1, Rep2}) ->
-	rep(Path, [Rep1, Rep2]);
-rep(Path, {op, _L, _Op, Rep}) ->
-	rep(Path, Rep);
-rep(Path, {bin, _, Rep}) ->
-	rep(Path, Rep);
-rep(Path, {bin_element, _, Rep, _, _}) ->
-	rep(Path, Rep);
-rep(Path, {tuple, _L, Rep}) ->
-	rep(Path, Rep);
-rep(Path, {call, _, {atom, _, F}, Rep}) ->
-	[{skip, F}] ++ rep(Path, Rep);
-rep(Path, {call, _, Rep1, Rep2}) -> 
-	rep(Path, [Rep1, Rep2]);
-rep(_Path, {remote, _, {atom,_,M}, {atom,_,F}}) ->
+rep({type, _L, _Type, Rep}) ->
+	rep(Rep);
+rep({record, _, Name, Rep}) ->
+	[{skip, Name}] ++ rep(Rep);
+rep({record, _, _Var, Name, Rep}) ->
+	[{skip, Name}] ++ rep(Rep);
+rep({record_field, _, {atom, _, Name}, Rep}) ->
+	[{skip, Name}] ++ rep(Rep);
+rep({typed_record_field, Field, _Rep}) ->
+	rep(Field);
+rep({clause, _L, Rep1, Rep2, Rep3}) ->
+	rep([Rep1, Rep2, Rep3]);
+rep({'case', _L, Rep1, Rep2}) ->
+	rep([Rep1, Rep2]);
+rep({'try', _L, Rep1, Rep2, Rep3, Rep4}) ->
+	rep([Rep1, Rep2, Rep3, Rep4]);
+rep({'catch', _, Rep}) ->
+	rep(Rep);
+rep({op, _L, _Op, Rep1, Rep2}) ->
+	rep([Rep1, Rep2]);
+rep({op, _L, _Op, Rep}) ->
+	rep(Rep);
+rep({bin, _, Rep}) ->
+	rep(Rep);
+rep({bin_element, _, Rep, _, _}) ->
+	rep(Rep);
+rep({tuple, _L, Rep}) ->
+	rep(Rep);
+rep({call, _, {atom, _, F}, Rep}) ->
+	[{skip, F}] ++ rep(Rep);
+rep({call, _, Rep1, Rep2}) -> 
+	rep([Rep1, Rep2]);
+rep({remote, _, {atom,_,M}, {atom,_,F}}) ->
 	[{skip, M}, {skip,F}];
-rep(Path, {remote, _, Rep, {atom,_,F}}) ->
-	rep(Path, Rep) ++ [{skip,F}];
-rep(_Path, {atom, _L, Atom}) ->
+rep({remote, _, Rep, {atom,_,F}}) ->
+	rep(Rep) ++ [{skip,F}];
+rep({atom, _L, Atom}) ->
 	[{keep, Atom}];
-rep(Path, {cons, _L, Rep1, Rep2}) ->
-	rep(Path, [Rep1, Rep2]);
-rep(Path, {match, _L, Rep1, Rep2}) ->
-	rep(Path, [Rep1, Rep2]);
-rep(Path, {'receive', _, Rep1, Rep2, Rep3}) ->
-	rep(Path, [Rep1, Rep2, Rep3]);
-rep(Path, {lc, _, Rep1, Rep2}) ->
-	rep(Path, [Rep1, Rep2]);
-rep(Path, {generate, _, Rep1, Rep2}) ->
-	rep(Path, [Rep1, Rep2]);
-rep(Path, [Rep|Rest]) ->
-	lists:append(rep(Path, Rep), rep(Path, Rest));
-rep(_Path, _P) -> [].
-
+rep({cons, _L, Rep1, Rep2}) ->
+	rep([Rep1, Rep2]);
+rep({match, _L, Rep1, Rep2}) ->
+	rep([Rep1, Rep2]);
+rep({'receive', _, Rep1, Rep2, Rep3}) ->
+	rep([Rep1, Rep2, Rep3]);
+rep({lc, _, Rep1, Rep2}) ->
+	rep([Rep1, Rep2]);
+rep({generate, _, Rep1, Rep2}) ->
+	rep([Rep1, Rep2]);
+rep([Rep|Rest]) ->
+	rep(Rep) ++ rep(Rest);
+rep(_P) -> [].

@@ -15,7 +15,7 @@ Usage
 -----
 ```sh
 make script
-./fmt path_to_erl_file
+./fmt tick|untick path_to_erl_file
 ```
 
-It can't parse atoms in macros at the moment.
+It can't parse atoms in macros definitions at the moment.

@@ -1,7 +1,8 @@
 -module(fmt_test).
 -export([test/0, kz_extra/5, moar/1]).
 -define(MMM, test).
--record(state, {field = true :: boolean()}).
+
+-record(state1, {field = true :: boolean(), another }).
 
 tokenize(X) -> X.
 
@@ -36,15 +37,19 @@ kz_extra(Module, Node, Id, Conf, Data) ->
 		end
 	end
 	]),
-	tokenize(#state{field=test}),
+	tokenize(#state1{field=test}),
 	(catch gproc:unreg({p, l, {call_control, Id}})),
-	tokenize(Data#state{field=test}),
+	tokenize(Data#state1{field=test}),
 	receive
 		keep_alive_expired -> ok
 		after 0 -> ok
 	end,
 	[gen_listener:cast(Srv, {update_node, Node}) || Srv <- test].
 
--type state() :: #state{}.
+-type state() :: #state1{}.
 -spec moar(state()) -> state().
-moar(S) -> S.
+moar(S) -> 
+	S#state1{
+		field=false,
+		another=true
+	}.

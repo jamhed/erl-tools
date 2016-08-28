@@ -121,6 +121,8 @@ rep({record_field, _, {atom, _, Name}, Rep}) ->
 	[{skip, Name}] ++ rep(Rep);
 rep({typed_record_field, Field, _Rep}) ->
 	rep(Field);
+rep({clause, _L, [{tuple, _, [{atom, _, throw}, Rep1, Rep2]}], Rep3, Rep4}) ->
+	rep([Rep1, Rep2, Rep3, Rep4]);
 rep({clause, _L, Rep1, Rep2, Rep3}) ->
 	rep([Rep1, Rep2, Rep3]);
 rep({'case', _L, Rep1, Rep2}) ->

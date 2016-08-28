@@ -17,3 +17,5 @@ Usage
 make script
 ./fmt path_to_erl_file
 ```
+
+It can't parse atoms in macros at the moment.

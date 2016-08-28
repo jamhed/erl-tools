@@ -1,6 +1,7 @@
 -module(fmt_test).
--export([test/0, kz_extra/5]).
+-export([test/0, kz_extra/5, moar/1]).
 -define(MMM, test).
+-record(state, {field = true :: boolean()}).
 
 tokenize(X) -> X.
 
@@ -20,6 +21,30 @@ test() ->
 		'try':test -> ?MMM
 	end.
 
--spec kz_extra(term(), term(), term(), term(), term()) -> ok.
+-type fs_app() :: {binary(), binary() | noop}.
+-spec kz_extra(term(), term(), term(), term(), fs_app()) -> ok.
 kz_extra(Module, Node, Id, Conf, Data) ->
-	(kz_util:to_atom(Module, true)):handle_config_req(Node, Id, Conf, Data).
+	case Node of
+		'$already_ticked' when Module =:= test -> test();
+		false -> put('$prior_terminators', Id)
+	end,
+	Media = <<$', (ecallmgr_util:media_path(kz_json:get_value(<<"Media-Name">>, Node), new))/binary, $'>>,
+	(kz_util:to_atom(Media, true)):handle_config_req(Node, Id, Conf, Data),
+	tokenize([fun() ->
+		case Id of
+			test -> test()
+		end
+	end
+	]),
+	tokenize(#state{field=test}),
+	(catch gproc:unreg({p, l, {call_control, Id}})),
+	tokenize(Data#state{field=test}),
+	receive
+		keep_alive_expired -> ok
+		after 0 -> ok
+	end,
+	[gen_listener:cast(Srv, {update_node, Node}) || Srv <- test].
+
+-type state() :: #state{}.
+-spec moar(state()) -> state().
+moar(S) -> S.

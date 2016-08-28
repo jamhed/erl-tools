@@ -11,9 +11,14 @@ process(untick, File) ->
 
 make_st(File) ->
 	Tokens = tokens(File),
-	Sentences = [ [] | sentences(Tokens) ] ++ [ [] ],
+	Sentences = [ [] | sentences(Tokens) ],
 	AST = ast(File),
-	lists:zip(Sentences, AST).
+	case (_L1 = length(AST)) == (_L2 = length(Sentences)) of
+		true ->
+			lists:zip(Sentences, AST);
+		false ->
+			lists:zip(Sentences ++ [[]], AST)
+	end.
 
 tokens(File) ->
 	Data = read(File),
@@ -76,7 +81,7 @@ reassemble(Tokens, TargetAtoms) ->
 tick(Target, {_Item, [{text, Text}, {location, _Line}]}) ->
 	{Target, Text};
 tick([{keep,Value}|Rest], {atom, [{text, _Text}, {location, _Line}], Value}) ->
-	{Rest, io_lib:format("'~p'", [Value])};
+	{Rest, io_lib:format("'~s'", [Value])};
 tick([{skip,Value}|Rest], {atom, [{text, Text}, {location, _Line}], Value}) ->
 	{Rest, Text};
 tick(Target, {_Item, [{text, Text}, {location, _Line}], _Value}) ->
@@ -96,16 +101,42 @@ analyze([{Tokens, Form} | Rest]) ->
 
 rep(Path, {function, _L, Name, _Arity, Rep}) ->
 	[{skip,Name}] ++ rep([Name | Path], Rep);
-rep(Path, {attribute, _L, _Attr, {{Name, _}, Rep}}) ->
+rep(Path, {attribute, _L, spec, {{Name, _}, Rep}}) ->
 	[{skip, Name}] ++ rep(Path, Rep);
+rep(Path, {attribute, _L, type, {Name, Rep1, Rep2}}) ->
+	[{skip, Name}] ++ rep(Path, [Rep1, Rep2]);
+rep(Path, {attribute, _L, record, {Name, Rep}}) ->
+	[{skip, Name}] ++ rep(Path, Rep);
+rep(Path, {'fun', _, {clauses, Rep}}) ->
+	rep(Path, Rep);
+rep(_Path, {type, _L, record, [{atom, _, Name}]}) ->
+	[{skip, Name}];
 rep(Path, {type, _L, _Type, Rep}) ->
 	rep(Path, Rep);
+rep(Path, {record, _, Name, Rep}) ->
+	[{skip, Name}] ++ rep(Path, Rep);
+rep(Path, {record, _, _Var, Name, Rep}) ->
+	[{skip, Name}] ++ rep(Path, Rep);
+rep(Path, {record_field, _, _Field, Rep}) ->
+	rep(Path, Rep);
+rep(Path, {typed_record_field, Field, _Rep}) ->
+	rep(Path, Field);
 rep(Path, {clause, _L, Rep1, Rep2, Rep3}) ->
 	rep(Path, [Rep1, Rep2, Rep3]);
 rep(Path, {'case', _L, Rep1, Rep2}) ->
 	rep(Path, [Rep1, Rep2]);
 rep(Path, {'try', _L, Rep1, Rep2, Rep3, Rep4}) ->
 	rep(Path, [Rep1, Rep2, Rep3, Rep4]);
+rep(Path, {'catch', _, Rep}) ->
+	rep(Path, Rep);
+rep(Path, {op, _L, _Op, Rep1, Rep2}) ->
+	rep(Path, [Rep1, Rep2]);
+rep(Path, {op, _L, _Op, Rep}) ->
+	rep(Path, Rep);
+rep(Path, {bin, _, Rep}) ->
+	rep(Path, Rep);
+rep(Path, {bin_element, _, Rep, _, _}) ->
+	rep(Path, Rep);
 rep(Path, {tuple, _L, Rep}) ->
 	rep(Path, Rep);
 rep(Path, {call, _, {atom, _, F}, Rep}) ->
@@ -121,6 +152,12 @@ rep(_Path, {atom, _L, Atom}) ->
 rep(Path, {cons, _L, Rep1, Rep2}) ->
 	rep(Path, [Rep1, Rep2]);
 rep(Path, {match, _L, Rep1, Rep2}) ->
+	rep(Path, [Rep1, Rep2]);
+rep(Path, {'receive', _, Rep1, Rep2, Rep3}) ->
+	rep(Path, [Rep1, Rep2, Rep3]);
+rep(Path, {lc, _, Rep1, Rep2}) ->
+	rep(Path, [Rep1, Rep2]);
+rep(Path, {generate, _, Rep1, Rep2}) ->
 	rep(Path, [Rep1, Rep2]);
 rep(Path, [Rep|Rest]) ->
 	lists:append(rep(Path, Rep), rep(Path, Rest));

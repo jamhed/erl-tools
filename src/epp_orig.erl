@@ -17,7 +17,7 @@
 %%
 %% %CopyrightEnd%
 
--module(epp).
+-module(epp_orig).
 
 %% An Erlang code preprocessor.
 

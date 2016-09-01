@@ -1,5 +1,5 @@
 -module(fmt_test).
--export([test/0, kz_extra/5, moar/1]).
+-export([test/0, kz_extra/5, moar/1, oneshot/1]).
 -define(MMM, test).
 
 -record(state1, {field = true :: boolean(), another }).
@@ -53,3 +53,6 @@ moar(S) ->
 		field=false,
 		another=true
 	}.
+
+oneshot({oneshot, one}) -> ok;
+oneshot(oneshot) -> ok.

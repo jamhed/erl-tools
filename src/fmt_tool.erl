@@ -96,10 +96,12 @@ untick({_Item, [{text, Text}, {location, _Line}], _Value}) ->
 analyze([]) -> [];
 analyze([{Tokens, Form} | Rest]) ->
 	TargetAtoms = rep(Form),
-	io:format("~p~n~p~n~n", [TargetAtoms, Form]),
+	%% io:format("~p~n~p~n~n", [TargetAtoms, Form]),
 	reassemble(Tokens, TargetAtoms) ++ analyze(Rest).
 
-rep({function, _L, Name, _Arity, Rep}) ->
+rep({function, L, Name, Arity, Rep}) ->
+	rep(lists:map(fun(R) -> [{fmt_function_clause, L, Name, Arity, R}] end, Rep));
+rep({fmt_function_clause, _L, Name, _Arity, Rep}) ->
 	[{skip, Name}] ++ rep(Rep);
 rep({attribute, _L, spec, {{Name, _}, Rep}}) ->
 	[{skip, Name}] ++ rep(Rep);

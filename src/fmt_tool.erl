@@ -1,10 +1,14 @@
 -module(fmt_tool).
--export([process/2]).
--export([tokens/1, tokens/2, sentences/1, ast/1, analyze/1, make_st/1]).
+-export([process/3]).
+-export([tokens/1, tokens/2, sentences/1, ast/1, analyze/2, make_st/1]).
 
-process(tick, File) ->
-	analyze(make_st(File));
-process(untick, File) ->
+is_verbose(Opts) -> proplists:get_value(verbose, Opts).
+verbose(true, Fmt, Args) -> io:format(Fmt, Args);
+verbose(_, _Fmt, _Args) -> skip.
+
+process(tick, File, Opts) ->
+	analyze(make_st(File), is_verbose(Opts));
+process(untick, File, _Opts) ->
 	Data = read(File),
 	Tokens = tokenize(Data),
 	lists:flatten([ untick(Token) || Token <- Tokens ]).
@@ -93,11 +97,11 @@ untick({atom, [{text, _Text}, {location, _Line}], Value}) ->
 untick({_Item, [{text, Text}, {location, _Line}], _Value}) ->
 	Text.
 
-analyze([]) -> [];
-analyze([{Tokens, Form} | Rest]) ->
+analyze([], _) -> [];
+analyze([{Tokens, Form} | Rest], Verbose) ->
 	TargetAtoms = rep(Form),
-	%% io:format("~p~n~p~n~n", [TargetAtoms, Form]),
-	reassemble(Tokens, TargetAtoms) ++ analyze(Rest).
+	verbose(Verbose, "~p~n~p~n~n", [TargetAtoms, Form]),
+	reassemble(Tokens, TargetAtoms) ++ analyze(Rest, Verbose).
 
 rep({function, L, Name, Arity, Rep}) ->
 	rep(lists:map(fun(R) -> [{fmt_function_clause, L, Name, Arity, R}] end, Rep));

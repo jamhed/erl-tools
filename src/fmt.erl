@@ -11,14 +11,21 @@ opts() ->
 main(Args) ->
 	case getopt:parse(opts(), Args) of
 		{ok, {Opts, [Action|Files]}} when is_list(Files) ->
-			[ file(Action, File, Opts) || File <- Files];
+			[ handle_action(erlang:list_to_atom(Action), File, Opts) || File <- Files];
 		_ ->
 			io:format("Usage: ./fmt [-iv] tick|untick file.erl~n", [])
 	end.
 
-file(Action, File, Opts) ->
-	Txt = fmt_tool:process(erlang:list_to_atom(Action), File, Opts),
-	results(proplists:get_value(inplace, Opts), File, Txt).
+handle_action(Action, File, Opts) ->
+	Inplace = proplists:get_value(inplace, Opts),
+	results(Inplace, File, action(Action, File, Opts)).
+
+action(tick, File, Opts) ->
+	fmt_tool:quote(File, Opts);
+action(untick, File, Opts) ->
+	fmt_tool:unquote(File, Opts);
+action(parse, File, Opts) ->
+	fmt_tool:parse(File, Opts).
 
 results(true=_Inplace, File, Text) ->
 	file:write_file(File, Text);

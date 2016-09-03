@@ -1,17 +1,24 @@
 -module(fmt_tool).
--export([process/3]).
+-export([quote/2, unquote/2, parse/2]).
 -export([tokens/1, tokens/2, sentences/1, ast/1, analyze/2, make_st/1]).
 
 is_verbose(Opts) -> proplists:get_value(verbose, Opts).
 verbose(true, Fmt, Args) -> io:format(Fmt, Args);
 verbose(_, _Fmt, _Args) -> skip.
 
-process(tick, File, Opts) ->
-	analyze(make_st(File), is_verbose(Opts));
-process(untick, File, _Opts) ->
+quote(File, Opts) ->
+	analyze(make_st(File), is_verbose(Opts)).
+
+unquote(File, _Opts) ->
 	Data = read(File),
 	Tokens = tokenize(Data),
 	lists:flatten([ untick(Token) || Token <- Tokens ]).
+
+parse(File, _Opts) ->
+	AST = ast(File),
+	io:format("AST:~p~n", [AST]),
+	fmt_ast:rep(AST, []),
+	"ok".
 
 make_st(File) ->
 	Tokens = tokens(File),

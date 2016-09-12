@@ -16,9 +16,7 @@ unquote(File, _Opts) ->
 
 parse(File, _Opts) ->
 	AST = ast(File),
-	io:format("AST:~p~n", [AST]),
-	fmt_ast:rep(AST, []),
-	"ok".
+	fmt_ast:rep(AST, []).
 
 make_st(File) ->
 	Tokens = tokens(File),
